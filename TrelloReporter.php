@@ -31,7 +31,6 @@
   	$board = $options['b'];
   	$tag = $options['t'];
   	$listArray = [];
-  	$totalFound = 0;
 	$cardsIn = [];
 	$listCounts = [];
 
@@ -44,8 +43,6 @@
 	foreach($cards as $c) {
 		foreach($c->labels as $l){
 			if (strpos($l->name,$tag) !== false) {
-				$totalFound++;
-				
 				$cardsIn[] = [
 					'id' => $c->id,
 					'name' => $c->name,
@@ -61,7 +58,7 @@
 		}
 	}
 
-	print "{$tag} currently has {$totalFound} cards tagged.".PHP_EOL;
+	print "{$tag} currently has " . count($cardsIn) . " cards tagged.".PHP_EOL;
 
 	if(isset($options['overview'])) {
 		foreach($listCounts as $id => $total) {
