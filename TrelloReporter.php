@@ -45,7 +45,7 @@
 		$lane = $options['l'];
 
 		if (!in_array($lane,array_keys(array_flip($listArray)))) {
-			$msg .= 'Invalid Usage: Provided lane is not found!'.PHP_EOL;
+			print 'Invalid Usage: Provided lane is not found!'.PHP_EOL;
   			exit(0);
 		}
 
