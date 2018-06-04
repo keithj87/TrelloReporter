@@ -13,7 +13,7 @@
 		return json_decode($results);
   	}
 
-	$options = getopt("b:t:",['overview::','detailed::','nameonly::','list::']);
+	$options = getopt("b:t:l:",['overview::','detailed::']);
 
 	$key = getenv('TRELLO_API_KEY',true);
   	$token = getenv('TRELLO_API_TOKEN',true);
@@ -29,63 +29,87 @@
   	}
 
   	$board = $options['b'];
+	$listArray = [];
+	$cardsIn = [];
+	$listCounts = [];
 
 	$lists = get('list',$board,$key,$token);
 	foreach($lists as $l) {
-		$listArray[$l->id]  = $l->name;
+		$listArray[$l->id] = strtolower($l->name);
 	}
 
 	$cards = get('cards',$board,$key,$token);
+	print "There are currently " . count($cards) . " cards for this board.".PHP_EOL;
 
-	if (isset($options['list'])) {
-		print "There are currently " . count($cards) . " cards for this board.".PHP_EOL;
+	if(isset($options['l'])) {
+		$lane = $options['l'];
 
-		foreach($cards as $c) {
-			print "{$c->name}".PHP_EOL;
+		if (!in_array($lane,array_keys(array_flip($listArray)))) {
+			$msg .= 'Invalid Usage: Provided lane is not found!'.PHP_EOL;
+  			exit(0);
 		}
-	} else if (isset($options['t'])){
 
-var_dump($options);exit;
-
-		$tag = $options['t'];
-	  	$listArray = [];
-		$cardsIn = [];
-		$listCounts = [];
+		$laneId = array_flip($listArray)[$lane];
 
 		foreach($cards as $c) {
+			if ($c->idList === $laneId) {
+				$cardsIn[] = $c;
+			}	
+		}
+
+		print "Lane [".ucwords($lane)."] currently has " . count($cardsIn). " cards in it.".PHP_EOL;
+	}
+
+    if(isset($options['t']) && $options['t']) {
+		$newCardsIn = [];
+		$tag = $options['t'];
+	  	$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
+
+	  	foreach($cardsIn as $c) {
 			foreach($c->labels as $l){
 				if (strpos($l->name,$tag) !== false) {
-					$cardsIn[] = [
-						'id' => $c->id,
-						'name' => $c->name,
-						'list' => $c->idList
-					];
-
-					if (!isset($listCounts[$c->idList])) {
-						$listCounts[$c->idList] = 1;
-					} else {
-						$listCounts[$c->idList]++;
-					}
+					$newCardsIn[] = $c;
 				}	
 			}
 		}
 
-		if(isset($options['t']) && $options['t']) {
-			print "{$tag} currently has " . count($cardsIn) . " cards tagged.".PHP_EOL;
+		$cardsIn = $newCardsIn;
 
-		} else if(isset($options['nameonly'])) {
-			foreach($cardsIn as $c){
-				print "{$c['name']}".PHP_EOL;
-			}
-		} else if(isset($options['overview'])) {
-			foreach($listCounts as $id => $total) {
-				print "{$total} item(s) in '{$listArray[$id]}'".PHP_EOL;
-			}
-		} else if (isset($options['detailed'])) {
-			foreach($cardsIn as $c){
-				print "{$c['name']} is in {$listArray[$c['list']]}".PHP_EOL;
+		print "Tag [{$tag}] currently has " . count($cardsIn) . " cards tagged.".PHP_EOL;
+	}
+
+	if(isset($options['overview'])) {
+		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
+
+		foreach($cardsIn as $c) {
+			if (!isset($listCounts[$c->idList])) {
+				$listCounts[$c->idList] = 1;
+			} else {
+				$listCounts[$c->idList]++;
 			}
 		}
+
+		foreach($listCounts as $id => $total) {
+			print "{$total} item(s) in '{$listArray[$id]}'".PHP_EOL;
+		}
+
+		exit(0);
+	} 
+
+	if (isset($options['detailed'])) {
+		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
+
+		foreach($cardsIn as $c){
+			print "{$c->name} is in {$listArray[$c->idList]}".PHP_EOL;
+		}
+
+		exit(0);
+	}
+
+	$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
+	
+	foreach($cardsIn as $c) {
+		print "{$c->name}".PHP_EOL;
 	}
 
 	exit(0);
