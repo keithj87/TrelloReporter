@@ -13,7 +13,7 @@
 		return json_decode($results);
   	}
 
-	$options = getopt("b:t:l:",['overview::','detailed::']);
+	$options = getopt("b:t:l:",['overview::','detailed::','csv::']);
 
 	$key = getenv('TRELLO_API_KEY',true);
   	$token = getenv('TRELLO_API_TOKEN',true);
@@ -39,7 +39,10 @@
 	}
 
 	$cards = get('cards',$board,$key,$token);
-	print "There are currently " . count($cards) . " cards for this board.".PHP_EOL;
+	
+	if (!isset($options['csv'])) {
+		print "There are currently " . count($cards) . " cards for this board.".PHP_EOL;
+	}
 
 	if(isset($options['l'])) {
 		$lane = $options['l'];
@@ -100,7 +103,28 @@
 		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
 
 		foreach($cardsIn as $c){
-			print "{$c->name} is in {$listArray[$c->idList]}".PHP_EOL;
+			print ucwords($listArray[$c->idList]) . " - {$c->name}".PHP_EOL;
+		}
+
+		exit(0);
+	}
+
+	if (isset($options['csv'])) {
+		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
+
+		// col headers
+		print "LANE,LABELS,TITLE".PHP_EOL;
+
+		foreach($cardsIn as $c){
+			$labels = '';
+
+			foreach($c->labels as $l){
+				//if (strpos($l->name,'NWE') !== false) {
+					$labels .= "[{$l->name}] ";
+				//}	
+			}
+
+			print ucwords($listArray[$c->idList]) .",{$labels},{$c->name}".PHP_EOL;
 		}
 
 		exit(0);
