@@ -1,9 +1,10 @@
 <?php
+
 	function get($type,$boardId,$key,$token)
   	{
   		$urls = [
   			'list' => "https://api.trello.com/1/boards/{$boardId}/lists?fields=name&cards=none&key={$key}&token={$token}",
-			'cards' => "https://api.trello.com/1/boards/{$boardId}/cards/?&fields=id,name,labels,idList&key={$key}&token={$token}"
+			'cards' => "https://api.trello.com/1/boards/{$boardId}/cards/?&fields=id,name,labels,idList&customFieldItems=true&key={$key}&token={$token}"
 	  	];
 
 	  	$ch = curl_init($urls[$type]);
@@ -11,6 +12,19 @@
 		$results = curl_exec($ch);
 		curl_close($ch);
 		return json_decode($results);
+  	}
+
+  	function sendEmail($subject,$body,$altBdy) {
+		$to = 'kjackson@clacorp.com';
+		$headers = 
+			'From: kjackson@clacorp.com '. "\r\n" .
+			'MIME-Version: 1.0 '. "\r\n" .
+			'Content-type: text/plain';
+
+		if(!mail($to,$subject,$body,$headers)) 
+		{
+		    echo "Mailer Error: ";
+		}
   	}
 
 	$options = getopt("b:t:l:",['overview::','detailed::','csv::']);
@@ -32,6 +46,7 @@
 	$listArray = [];
 	$cardsIn = [];
 	$listCounts = [];
+	$customFieldsArray = [];
 
 	$lists = get('list',$board,$key,$token);
 	foreach($lists as $l) {
@@ -78,7 +93,7 @@
 
 		$cardsIn = $newCardsIn;
 
-		print "Tag [{$tag}] currently has " . count($cardsIn) . " cards tagged.".PHP_EOL;
+		print "To date [".date('m/d/Y')."] tag [{$tag}] currently has " . count($cardsIn) . " cards.".PHP_EOL.PHP_EOL;
 	}
 
 	if(isset($options['overview'])) {
@@ -101,11 +116,47 @@
 
 	if (isset($options['detailed'])) {
 		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
+		$list = [];
+		$body = '';
 
 		foreach($cardsIn as $c){
-			print ucwords($listArray[$c->idList]) . " - {$c->name}".PHP_EOL;
+
+		 /*foreach ($c->customFieldItems as $cf){
+		 	if(isset($cf->value)) {
+print json_encode($c).PHP_EOL;
+print json_encode($cf).PHP_EOL;
+
+				$ch = curl_init("https://api.trello.com/1/boards/{$board}/customFields?key={$key}&token={$token}");
+				curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+				$results = curl_exec($ch);
+				curl_close($ch);
+print $results[2].PHP_EOL;exit;
+				return json_decode($results);
+			}
+			}*/
+
+			if (!isset($list[$c->idList])) {
+				$list[$c->idList] = [];
+			}
+
+			array_push($list[$c->idList],$c->name);
 		}
 
+		foreach ($list as $key => $array) {
+			$txt = count($array) . " items in " . ucwords($listArray[$key]) . PHP_EOL;
+			$body .= $txt;
+			print $txt;
+
+			foreach ($array as $card) {
+				$txt = " - {$card}" . PHP_EOL;
+				$body .= $txt;
+				print $txt;
+			}
+			$body .= PHP_EOL;
+			print PHP_EOL;
+		}
+
+		//sendEmail("State of {$tag} Release - [".date('d/m/yy')."]",$body,$body);
 		exit(0);
 	}
 
