@@ -26,7 +26,7 @@
 		}
   	}
 
-	$options = getopt("b:t:l:",['overview::','detailed::','csv::']);
+	$options = getopt("b:e:t:l:",['overview::','detailed::','csv::']);
 
 	$key = getenv('TRELLO_API_KEY',true);
   	$token = getenv('TRELLO_API_TOKEN',true);
@@ -55,7 +55,7 @@
 
 	$cards = get('cards',$board,$key,$token);
 	
-	if (!isset($options['csv'])) {
+	if ( !isset($options['csv']) ) {
 		print "There are currently " . count($cards) . " cards for this board.".PHP_EOL;
 	}
 
@@ -78,7 +78,41 @@
 		print "Lane [".ucwords($lane)."] currently has " . count($cardsIn). " cards in it.".PHP_EOL;
 	}
 
-    if(isset($options['t']) && $options['t']) {
+	if( isset($options['e']) && $options['e'] ) {
+		$newCardsIn = [];
+		$tags = explode(',',$options['e']);
+	  	$cardsIn = ( empty($cardsIn) ) ? $cards : $cardsIn;
+
+	  	foreach($cardsIn as $c) {
+			
+			$cardLabelValues = array_map(
+				function ($label) { return $label->name; },
+				$c->labels
+			);
+
+			$matchingLabels = array_intersect($cardLabelValues,$tags);
+
+			//print( implode(',',$cardLabelValues).PHP_EOL );
+			//print( implode(',',$tags).PHP_EOL );
+			//print( implode(',',$matchingLabels).PHP_EOL );
+			//exit(0);
+
+			if ( count( $matchingLabels ) == 0 ) {
+				$newCardsIn[] = $c;
+			}
+
+		}
+
+		$cardsIn = $newCardsIn;
+		
+		if ( count($tags) <= 1 ) {
+			print "No filtering tags provided".PHP_EOL.PHP_EOL;
+		} else {
+			print "There are currently ".count($cardsIn)." cards without tags [{$options['e']}]".PHP_EOL.PHP_EOL;
+		}
+	}
+
+	if( isset($options['t']) && $options['t'] ) {
 		$newCardsIn = [];
 		$tags = explode(',',$options['t']);
 	  	$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
@@ -103,7 +137,7 @@
 		}
 	}
 
-	if(isset($options['overview'])) {
+	if( isset($options['overview']) ) {
 		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
 
 		foreach($cardsIn as $c) {
@@ -121,7 +155,7 @@
 		exit(0);
 	} 
 
-	if (isset($options['detailed'])) {
+	if ( isset($options['detailed']) ) {
 		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
 		$list = [];
 		$body = '';
@@ -173,7 +207,7 @@
 		exit(0);
 	}
 
-	if (isset($options['csv'])) {
+	if ( isset($options['csv']) ) {
 		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
 
 		// col headers
