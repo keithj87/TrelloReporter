@@ -26,13 +26,22 @@
 		}
   	}
 
-	$options = getopt("b:e:t:l:",['overview::','detailed::','csv::']);
+	function outputCards($cards) {
+		foreach($cards as $c) {
+			print "{$c->name}".PHP_EOL;
+		}
+	}
 
+	//var_dump($argv);
+
+	$options = getopt("b:e:t:l:p:",['overview::','detailed::','csv::']);
 	$key = getenv('TRELLO_API_KEY',true);
   	$token = getenv('TRELLO_API_TOKEN',true);
 
+	//var_dump($options);
+
   	if( !isset($options['b']) ) {
-  		print 'Invalid Usage: Please make sure board id and tag are set!'.PHP_EOL;
+  		print 'Invalid Usage: Board id required!'.PHP_EOL;
   		exit(0);
   	}
 
@@ -43,7 +52,7 @@
 
   	$board = $options['b'];
 	$listArray = [];
-	$cardsIn = [];
+	$cardsToOutput = [];
 	$listCounts = [];
 	$customFieldsArray = [];
 
@@ -71,19 +80,29 @@
 
 		foreach($cards as $c) {
 			if ($c->idList === $laneId) {
-				$cardsIn[] = $c;
+				$cardsToOutput[] = $c;
 			}	
 		}
 
-		print "Lane [".ucwords($lane)."] currently has " . count($cardsIn). " cards in it.".PHP_EOL;
+		print "Lane [".ucwords($lane)."] currently has " . count($cardsToOutput). " cards in it.".PHP_EOL;
 	}
 
-	if( isset($options['e']) && $options['e'] ) {
-		$newCardsIn = [];
-		$tags = explode(',',$options['e']);
-	  	$cardsIn = ( empty($cardsIn) ) ? $cards : $cardsIn;
+	if( isset($options['e']) ) {
+		$newCardsIn = [];	
+	  	$cardsToOutput = ( empty($cardsToOutput) ) ? $cards : $cardsToOutput;
 
-	  	foreach($cardsIn as $c) {
+		$tagsOptions = explode(',',$options['e']);
+
+		$tags = array_filter( $tagsOptions, function($t) {
+			return $t != '';
+		});
+		
+		if ( count($tags) < 1 ) {
+			print 'Invalid Usage: Exclusion tags not provided!'.PHP_EOL;
+  			exit(0);
+		}
+		
+	  	foreach($cardsToOutput as $c) {
 			
 			$cardLabelValues = array_map(
 				function ($label) { return $label->name; },
@@ -92,32 +111,71 @@
 
 			$matchingLabels = array_intersect($cardLabelValues,$tags);
 
-			//print( implode(',',$cardLabelValues).PHP_EOL );
-			//print( implode(',',$tags).PHP_EOL );
-			//print( implode(',',$matchingLabels).PHP_EOL );
-			//exit(0);
-
 			if ( count( $matchingLabels ) == 0 ) {
 				$newCardsIn[] = $c;
 			}
 
 		}
 
-		$cardsIn = $newCardsIn;
+		$cardsToOutput = $newCardsIn;
+		print "There are currently ".count($cardsToOutput)." cards without tags [{$options['e']}]".PHP_EOL.PHP_EOL;
+	}
+
+	if( isset($options['p']) && $options['p'] ) {
+		$newCardsIn = [];
+		$cardsToOutput = ( empty($cardsToOutput) ) ? $cards : $cardsToOutput;
+		$sorted = [];
+
+		$tagsOptions = explode(',',$options['p']);
+
+		$tags = array_filter( $tagsOptions, function($t) {
+			return $t != '';
+		});
 		
-		if ( count($tags) <= 1 ) {
-			print "No filtering tags provided".PHP_EOL.PHP_EOL;
-		} else {
-			print "There are currently ".count($cardsIn)." cards without tags [{$options['e']}]".PHP_EOL.PHP_EOL;
+		if ( count($tags) < 1 ) {
+			print 'Invalid Usage: Prioritization tags not provided!'.PHP_EOL;
+  			exit(0);
 		}
+
+		foreach($tags as $t) {
+			$tagTransformed = str_replace( ' ' , '_' , strtolower($t) );
+			$sorted[$tagTransformed] = [];
+		}
+
+		foreach($cardsToOutput as $c) {
+			$cardLabelValues = array_map(
+				function ($label) { return $label->name; },
+				$c->labels
+			);
+
+			$matchingLabels = array_values( array_intersect($tags,$cardLabelValues) );
+
+			if ( count($matchingLabels) > 0 ) {
+				$label = strtolower( $matchingLabels[0] );
+				$cardTagTranformed = str_replace(' ','_',$label);
+				array_push($sorted[$cardTagTranformed],$c);
+			}
+		}
+
+		foreach( $tags as $t ) {
+			$tagTransformed = str_replace( ' ' , '_' , strtolower($t) );
+			$cardsForTag = $sorted[$tagTransformed];
+
+			foreach($cardsForTag as $card) {
+				array_push($newCardsIn,$card);
+			}
+		}
+
+		$cardsToOutput = $newCardsIn;
+		//print "Cards have been prioritized by tag sequence [{$options['p']}]".PHP_EOL.PHP_EOL;
 	}
 
 	if( isset($options['t']) && $options['t'] ) {
 		$newCardsIn = [];
 		$tags = explode(',',$options['t']);
-	  	$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
+	  	$cardsToOutput = (empty($cardsToOutput)) ? $cards : $cardsToOutput;
 
-	  	foreach($cardsIn as $c) {
+	  	foreach($cardsToOutput as $c) {
 			
 			$cardLabelValues = array_map(
 				function ($label){ return $label->name; },
@@ -129,18 +187,18 @@
 			}
 		}
 
-		$cardsIn = $newCardsIn;
+		$cardsToOutput = $newCardsIn;
 		if ( count($tags) <= 1 ) {
-			print "To date [".date('m/d/Y')."] tag [{$options['t']}] currently has " . count($cardsIn) . " cards.".PHP_EOL.PHP_EOL;
+			print "To date [".date('m/d/Y')."] tag [{$options['t']}] currently has " . count($cardsToOutput) . " cards.".PHP_EOL.PHP_EOL;
 		} else {
-			print "To date [".date('m/d/Y')."] tags [{$options['t']}] currently have " . count($cardsIn) . " cards.".PHP_EOL.PHP_EOL;
+			print "To date [".date('m/d/Y')."] tags [{$options['t']}] currently have " . count($cardsToOutput) . " cards.".PHP_EOL.PHP_EOL;
 		}
 	}
 
 	if( isset($options['overview']) ) {
-		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
+		$cardsToOutput = (empty($cardsToOutput)) ? $cards : $cardsToOutput;
 
-		foreach($cardsIn as $c) {
+		foreach($cardsToOutput as $c) {
 			if (!isset($listCounts[$c->idList])) {
 				$listCounts[$c->idList] = 1;
 			} else {
@@ -156,11 +214,11 @@
 	} 
 
 	if ( isset($options['detailed']) ) {
-		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
+		$cardsToOutput = (empty($cardsToOutput)) ? $cards : $cardsToOutput;
 		$list = [];
 		$body = '';
 
-		foreach($cardsIn as $c){
+		foreach($cardsToOutput as $c){
 
 			/*
 			foreach ($c->customFieldItems as $cf) {
@@ -203,17 +261,17 @@
 		}
 
 		//sendEmail("State of {$tag} - [".date('d/m/yy')."]",$body,$body);
-		
+
 		exit(0);
 	}
 
 	if ( isset($options['csv']) ) {
-		$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
+		$cardsToOutput = (empty($cardsToOutput)) ? $cards : $cardsToOutput;
 
 		// col headers
 		print "LANE,LABELS,TITLE".PHP_EOL;
 
-		foreach($cardsIn as $c){
+		foreach($cardsToOutput as $c){
 			$labels = '';
 
 			foreach($c->labels as $l) {
@@ -226,10 +284,6 @@
 		exit(0);
 	}
 
-	$cardsIn = (empty($cardsIn)) ? $cards : $cardsIn;
 	
-	foreach($cardsIn as $c) {
-		print "{$c->name}".PHP_EOL;
-	}
-
+	outputCards(cardsToOutput);
 	exit(0);
