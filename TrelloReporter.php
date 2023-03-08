@@ -27,6 +27,11 @@
   	}
 
 	function outputCards($cards) {
+
+		usort( $cards , function ($a, $b) {
+			return strcmp($a->name,$b->name);
+		});
+
 		foreach($cards as $c) {
 			print "{$c->name}".PHP_EOL;
 		}
@@ -148,6 +153,8 @@
 				$c->labels
 			);
 
+			$c->labels = $cardLabelValues;
+
 			$matchingLabels = array_values( array_intersect($tags,$cardLabelValues) );
 
 			if ( count($matchingLabels) > 0 ) {
@@ -162,11 +169,29 @@
 			$cardsForTag = $sorted[$tagTransformed];
 
 			foreach($cardsForTag as $card) {
+				$card->epic = $tagTransformed;
 				array_push($newCardsIn,$card);
 			}
 		}
 
 		$cardsToOutput = $newCardsIn;
+
+		// col headers
+		print "Epic,Phase,Title,Status".PHP_EOL;
+
+		foreach($cardsToOutput as $c) {
+			$phase = '';
+
+			if ( in_array('Upgrade Feature',$c->labels) ) {
+				$phase = 'Upgrade 1';
+			}
+
+			$epicLabel = ucwords( str_replace('_',' ',$c->epic) );
+			print("{$epicLabel},{$phase},{$c->name},").PHP_EOL;
+		}
+
+		exit(0);
+
 		//print "Cards have been prioritized by tag sequence [{$options['p']}]".PHP_EOL.PHP_EOL;
 	}
 
@@ -188,6 +213,7 @@
 		}
 
 		$cardsToOutput = $newCardsIn;
+		
 		if ( count($tags) <= 1 ) {
 			print "To date [".date('m/d/Y')."] tag [{$options['t']}] currently has " . count($cardsToOutput) . " cards.".PHP_EOL.PHP_EOL;
 		} else {
@@ -284,6 +310,5 @@
 		exit(0);
 	}
 
-	
-	outputCards(cardsToOutput);
+	outputCards($cardsToOutput);
 	exit(0);
